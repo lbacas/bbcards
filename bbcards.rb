@@ -600,13 +600,17 @@ def print_help
 	puts ""
 	puts "All flags:"
 	puts "\t-b,--black\t\tBlack card file"
-	puts "\t-d,--dir\t\tDirectory to search for card files"
+	puts "\t-d,--directory\t\tDirectory to search for card files"
 	puts "\t-h,--help\t\tPrint this Help message"
 	puts "\t-i,--icon\t\tIcon file, should be .jpg or .png"
-	puts "\t-l,--large\t\tGenerate large 2.5\"x3.5\" cards"
 	puts "\t-o,--output\t\tOutput file, will be a .pdf file"
-	puts "\t-s,--small\t\tGenerate small 2\"x2\" cards"
 	puts "\t-w,--white\t\tWhite card file"
+	puts "\n\tSizes:"
+	puts "\t-s,--small\t\tGenerate small 2\"x2\" cards"
+	puts "\t-m1,--medium1\t\tGenerate medium 41mm x 63mm cards"
+	puts "\t-m2,--medium2\t\tGenerate medium 43mm x 65mm cards"
+	puts "\t-m3,--medium3\t\tGenerate medium 45mm x 68mm cards"
+	puts "\t-l,--large\t\tGenerate large 2.5\"x3.5\" cards"
 	puts ""
 
 
@@ -661,6 +665,12 @@ else
 
 	flag_defs["-s"]            = "small"
 	flag_defs["--small"]       = "small"
+	flag_defs["-m1"]           = "medium41"
+	flag_defs["--medium1"]     = "medium41"
+	flag_defs["-m2"]           = "medium43"
+	flag_defs["--medium2"]     = "medium43"
+	flag_defs["-m3"]           = "medium45"
+	flag_defs["--medium3"]     = "medium45"
 	flag_defs["-l"]            = "large"
 	flag_defs["--large"]       = "large"
 	flag_defs["-r"]            = "rounded"
@@ -672,10 +682,24 @@ else
 
 
 	args = parse_args(arg_defs, flag_defs)
-	card_geometry = get_card_geometry(2.0,2.0, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
+
 	if args.has_key? "large"
-		card_geometry = get_card_geometry(2.5,3.5, (not (args["rounded"]).nil?), (not (args["oneperpage"]).nil? ))
+		card_width_inches  = 2.5
+		card_height_inches = 3.5
+	elsif args.has_key? "medium41"
+		card_width_inches  = 41/MM_PER_INCH
+		card_height_inches = 63/MM_PER_INCH
+	elsif args.has_key? "medium43"
+		card_width_inches  = 43/MM_PER_INCH
+		card_height_inches = 65/MM_PER_INCH
+	elsif args.has_key? "medium45"
+		card_width_inches  = 45/MM_PER_INCH
+		card_height_inches = 68/MM_PER_INCH
+	else
+		card_width_inches  = 2.0
+		card_height_inches = 2.0
 	end
+	card_geometry = get_card_geometry( card_width_inches, card_height_inches, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
 
 	if args.has_key? "help" or args.length == 0 or ( (not args.has_key? "white") and (not args.has_key? "black") and (not args.has_key? "dir") )
 		print_help
