@@ -443,13 +443,23 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 	if not input_files_are_absolute
 		white_file      = directory + File::Separator + white_file
 		black_file      = directory + File::Separator + black_file
+		black_icon_file = directory + File::Separator + 'black_' + icon_file
+		white_icon_file = directory + File::Separator + 'white_' + icon_file
 		icon_file       = directory + File::Separator + icon_file
 	end
 
+	# Get icon file
 	if not File.exist? icon_file
 		icon_file = "./default.png"
 	end
 
+	# Get specific icon files for black or white decks
+	unless File.exist? black_icon_file
+		black_icon_file = icon_file
+	end
+	unless File.exist? white_icon_file
+		white_icon_file = icon_file
+	end
 
 	if not directory.nil?
 		if File.exist?(directory) and directory != "." and output_file_name_from_directory
@@ -497,12 +507,12 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 
 
 		white_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, icon_file, statements, false)
+			render_card_page(pdf, card_geometry, white_icon_file, statements, false)
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
 		black_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, icon_file, statements, true)
+			render_card_page(pdf, card_geometry, black_icon_file, statements, true)
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
