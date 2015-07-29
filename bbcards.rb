@@ -68,7 +68,6 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_cor
 end
 
 def draw_grid(pdf, card_geometry)
-	
 	pdf.stroke do
 		if card_geometry["rounded_corners"] == false
 			#Draw vertical lines
@@ -130,12 +129,10 @@ end
 
 
 
-def render_card_page(pdf, card_geometry, icon, statements, is_black)
-
+def render_card_page(pdf, card_geometry, icon, statements, directory, is_black)
 	pdf.font "Helvetica", :style => :normal
 	pdf.font_size = 14
 	pdf.line_width(0.5);
-
 
 	if(is_black)
 		pdf.canvas do
@@ -207,44 +204,22 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 			card_text = card_text.gsub("\[\[\[/font\]\]\]", "</font>")
 			card_text = card_text.gsub("\[\[\[/color\]\]\]", "</color>")
 
+			# Parse card_text to obtain pick_num and additional image
+			re = /(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/
+			m = re.match(card_text)
 
+			pick_num  = m[1]
+			img_data  = m[2]
+			card_text = m[3]
 
-			parts = card_text.split(/\[\[/)
-			card_text = ""
-			first = true
-			previous_matches = false
-			parts.each do |p|
-				n = p
-				this_matches=false
-				if p.match(/\]\]/)
-					s = p.split(/\]\]/)
-					line_parts.push(s[0])
-					if s.length > 1
-						n = s[1]
-					else
-						n = ""
-					end
-					this_matches=true
-				end
-
-				if first
-					card_text = n.to_s
-				elsif this_matches
-					card_text = card_text + n
-				else
-					card_text = card_text + "[[" + n
-				end
-				first = false
-			end
+			# Trim card text.
 			card_text = card_text.gsub(/^[\t ]*/, "")
 			card_text = card_text.gsub(/[\t ]*$/, "")
 
-
-
+			# Identify if the card is a pick-2 or pick-3 black card
 			is_pick2 = false
 			is_pick3 = false
 			if is_black
-				pick_num = line_parts.shift
 				if pick_num.nil? or pick_num == ""
 					tmpline = "a" + card_text.to_s + "a"
 					parts = tmpline.split(/__+/)
@@ -258,9 +233,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 				elsif pick_num == "3"
 					is_pick3 = true
 				end
-
 			end
-
 
 			picknum = "0"
 			if is_pick2
@@ -276,10 +249,14 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 			#by default cards should be bold
 			card_text = "<b>" + card_text + "</b>"
 
-
-
 			# Text
 			pdf.font "Helvetica", :style => :normal
+
+			# Print additional image on the card.
+			if not img_data.nil?
+				img_data = img_data.split(/;/)
+				pdf.image directory + File::Separator + img_data[0].to_s, fit: [img_data[1].to_f, img_data[2].to_f], at: [pdf.bounds.right + img_data[3].to_f, pdf.bounds.bottom + img_data[4].to_f]
+			end
 
 			if is_pick3
 				pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-55, :inline_format => true
@@ -357,7 +334,6 @@ def load_pages_from_lines(lines, card_geometry)
 
 end
 
-
 def load_pages_from_string(string, card_geometry)
 	lines = string.split(/[\r\n]+/)
 	pages = load_pages_from_lines(lines, card_geometry)
@@ -372,7 +348,6 @@ def load_pages_from_file(file, card_geometry)
 	end
 	return pages
 end
-
 
 def load_ttf_fonts(font_dir, font_families)
 
@@ -433,7 +408,6 @@ def load_ttf_fonts(font_dir, font_families)
 		end
 	end
 end
-
 
 def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, white_string="", black_string="", output_to_stdout=false, title=nil )
 
@@ -507,12 +481,12 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 
 
 		white_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, white_icon_file, statements, false)
+			render_card_page(pdf, card_geometry, white_icon_file, statements, directory, false)
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
 		black_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, black_icon_file, statements, true)
+			render_card_page(pdf, card_geometry, black_icon_file, statements, directory, true)
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
