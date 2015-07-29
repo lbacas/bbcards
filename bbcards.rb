@@ -30,16 +30,18 @@ require "prawn/measurement_extensions"
 
 MM_PER_INCH=25.4
 
-PAPER_NAME   = "LETTER"
-PAPER_HEIGHT = (MM_PER_INCH*11.0).mm;
-PAPER_WIDTH  = (MM_PER_INCH*8.5).mm;
+PAPER_NAME    = "LETTER"
+PAPER_HEIGHT  = (MM_PER_INCH*11.0).mm;
+PAPER_WIDTH   = (MM_PER_INCH*8.5).mm;
+MARGIN_HEIGHT = 15.mm;
+MARGIN_WIDTH  = 10.mm;
 
 
 def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_corners=false, one_card_per_page=false)
 	card_geometry = Hash.new
 	card_geometry["card_width"]        = (MM_PER_INCH*card_width_inches).mm
 	card_geometry["card_height"]       = (MM_PER_INCH*card_height_inches).mm
-	
+
 	card_geometry["rounded_corners"]   = rounded_corners == true ? ((1.0/8.0)*MM_PER_INCH).mm : rounded_corners
 	card_geometry["one_card_per_page"] = one_card_per_page
 
@@ -52,8 +54,8 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_cor
 	end
 
 
-	card_geometry["cards_across"] = (card_geometry["paper_width"] / card_geometry["card_width"]).floor
-	card_geometry["cards_high"]   = (card_geometry["paper_height"] / card_geometry["card_height"]).floor
+	card_geometry["cards_across"] = ( (card_geometry["paper_width"] - MARGIN_WIDTH) / card_geometry["card_width"]).floor
+	card_geometry["cards_high"]   = ( (card_geometry["paper_height"] - MARGIN_HEIGHT) / card_geometry["card_height"]).floor
 
 	card_geometry["page_width"]   = card_geometry["card_width"] * card_geometry["cards_across"]
 	card_geometry["page_height"]  = card_geometry["card_height"] * card_geometry["cards_high"]
@@ -76,23 +78,23 @@ def draw_grid(pdf, card_geometry)
 					[card_geometry["card_width"]*i, card_geometry["page_height"]]
 					)
 			end
-		
+
 			#Draw horizontal lines
 			0.upto(card_geometry["cards_high"]) do |i|
 				pdf.line(
 					[0,                           card_geometry["card_height"]*i],
 					[card_geometry["page_width"], card_geometry["card_height"]*i]
 					)
-		
+
 			end
 		else
 			0.upto(card_geometry["cards_across"]-1) do |i|
 				0.upto(card_geometry["cards_high"]-1) do |j|
 					#rectangle bounded by upper left corner, horizontal measured from the left, vertical measured from the bottom
 					pdf.rounded_rectangle(
-								[i*card_geometry["card_width"], card_geometry["card_height"]+(j*card_geometry["card_height"])], 
+								[i*card_geometry["card_width"], card_geometry["card_height"]+(j*card_geometry["card_height"])],
 								card_geometry["card_width"],
-								card_geometry["card_height"], 
+								card_geometry["card_height"],
 								card_geometry["rounded_corners"]
 								)
 				end
@@ -129,15 +131,15 @@ end
 
 
 def render_card_page(pdf, card_geometry, icon, statements, is_black)
-	
+
 	pdf.font "Helvetica", :style => :normal
 	pdf.font_size = 14
 	pdf.line_width(0.5);
 
-	
+
 	if(is_black)
 		pdf.canvas do
-			pdf.rectangle(pdf.bounds.top_left,pdf.bounds.width, pdf.bounds.height)
+			pdf.rectangle(pdf.bounds.top_left, pdf.bounds.width, pdf.bounds.height)
 		end
 
 		pdf.fill_and_stroke(:fill_color=>"000000", :stroke_color=>"000000") do
@@ -155,7 +157,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 	draw_grid(pdf, card_geometry)
 	statements.each_with_index do |line, idx|
 		box(pdf, card_geometry, idx) do
-			
+
 			line_parts = line.split(/\t/)
 			card_text = line_parts.shift
 			card_text = card_text.gsub(/\\n */, "\n")
@@ -185,7 +187,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 
 			card_text = card_text.gsub(/</, "&lt;");
 
-			
+
 			card_text = card_text.gsub("\[\[\[b\]\]\]", "<b>")
 			card_text = card_text.gsub("\[\[\[i\]\]\]", "<i>")
 			card_text = card_text.gsub("\[\[\[u\]\]\]", "<u>")
@@ -205,7 +207,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 			card_text = card_text.gsub("\[\[\[/font\]\]\]", "</font>")
 			card_text = card_text.gsub("\[\[\[/color\]\]\]", "</color>")
 
-			
+
 
 			parts = card_text.split(/\[\[/)
 			card_text = ""
@@ -238,7 +240,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 			card_text = card_text.gsub(/[\t ]*$/, "")
 
 
-			
+
 			is_pick2 = false
 			is_pick3 = false
 			if is_black
@@ -259,7 +261,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 
 			end
 
-			
+
 			picknum = "0"
 			if is_pick2
 				picknum = "2"
@@ -284,7 +286,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 			else
 				pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-35, :inline_format => true
 			end
-	
+
 			pdf.font "Helvetica", :style => :bold
 			#pick 2
 			if is_pick2
@@ -298,7 +300,7 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 			end
-	
+
 			#pick 3
 			if is_pick3
 				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pdf.bounds.bottom+20]
@@ -346,7 +348,7 @@ def load_pages_from_lines(lines, card_geometry)
 
 	cards_per_page = card_geometry["cards_high"] * card_geometry["cards_across"]
 	num_pages = (lines.length.to_f/cards_per_page.to_f).ceil
-		
+
 	0.upto(num_pages - 1) do |pn|
  		pages << lines[pn*cards_per_page,cards_per_page]
     	end
@@ -373,7 +375,7 @@ end
 
 
 def load_ttf_fonts(font_dir, font_families)
-	
+
 	if font_dir.nil?
 		return
 	elsif (not Dir.exist?(font_dir)) or (font_families.nil?)
@@ -394,7 +396,7 @@ def load_ttf_fonts(font_dir, font_families)
 			style = "italic"
 			name = name.gsub(/_Italic$/, "")
 		elsif name.match(/_Bold$/)
-			style = "bold"	
+			style = "bold"
 			name = name.gsub(/_Bold$/, "")
 		end
 
@@ -419,8 +421,8 @@ def load_ttf_fonts(font_dir, font_families)
 			elsif ttf_files.has_key? 'bold'
 				bold_italic = bold
 			end
-			
-			
+
+
 			font_families.update(name => {
 				:normal => normal,
 				:italic => italic,
@@ -434,14 +436,14 @@ end
 
 
 def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, white_string="", black_string="", output_to_stdout=false, title=nil )
-	
+
 	original_white_file = white_file
 	original_black_file = black_file
 	original_icon_file = icon_file
 	if not input_files_are_absolute
-		white_file = directory + File::Separator + white_file
-		black_file = directory + File::Separator + black_file
-		icon_file  = directory + File::Separator + icon_file
+		white_file      = directory + File::Separator + white_file
+		black_file      = directory + File::Separator + black_file
+		icon_file       = directory + File::Separator + icon_file
 	end
 
 	if not File.exist? icon_file
@@ -454,15 +456,15 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 			output_file = directory.split(File::Separator).pop + ".pdf"
 		end
 	end
-	
+
 	if output_to_stdout and title.nil?
 		title = "Bigger, Blacker Cards"
 	elsif title.nil? and output_file != "cards.pdf"
 		title = output_file.split(File::Separator).pop.gsub(/.pdf$/, "")
 	end
-	
 
-	
+
+
 	white_pages = []
 	black_pages = []
 	if white_file == nil and black_file == nil and white_string == "" and black_string == ""
@@ -479,9 +481,9 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 	else
 		black_pages = load_pages_from_file(black_file, card_geometry)
 	end
-		
-	
-	
+
+
+
 	if white_pages.length > 0 or black_pages.length > 0
 		pdf = Prawn::Document.new(
 			page_size: [card_geometry["paper_width"], card_geometry["paper_height"]],
@@ -525,7 +527,7 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 end
 
 def parse_args(variables=Hash.new, flags=Hash.new, save_orphaned=false, argv=ARGV)
-	
+
 	parsed_args = Hash.new
 	orphaned = Array.new
 
@@ -568,12 +570,12 @@ def print_help
 	puts "bbcards expects you to specify EITHER a directory or"
 	puts "specify a path to black/white card files. If both are"
 	puts "specified, it will ignore the indifidual files and generate"
-       	puts "cards from the directory."
+    puts "cards from the directory."
 	puts ""
 	puts "If you specify a directory, white cards will be loaded from"
-       	puts "a file white.txt in that directory and black cards from"
+    puts "a file white.txt in that directory and black cards from"
 	puts "black.txt. If icon.png exists in that directory, it will be"
-       	puts "used to generate the card icon on the lower left hand side of"
+    puts "used to generate the card icon on the lower left hand side of"
 	puts "the card. The output will be a pdf file with the same name as"
 	puts "the directory you specified in the current working directory."
 	puts "bbcards will descend recursively into any directory you"
@@ -596,7 +598,7 @@ def print_help
 	puts "\t-s,--small\t\tGenerate small 2\"x2\" cards"
 	puts "\t-w,--white\t\tWhite card file"
 	puts ""
-	
+
 
 end
 
@@ -605,7 +607,7 @@ if not (ENV['REQUEST_URI']).nil?
 
 	require 'cgi'
 	cgi = CGI.new( :accept_charset => "UTF-8" )
-	
+
 	white_cards = cgi["whitecards"]
 	black_cards = cgi["blackcards"]
 	card_size   = cgi["cardsize"]
@@ -621,12 +623,12 @@ if not (ENV['REQUEST_URI']).nil?
 			end
 		end
 	end
-	
-	
+
+
 	one_per_page    = page_layout == "oneperpage" ? true : false
 	rounded_corners = card_size    == "LR"         ? true : false
 	card_geometry   = card_size    == "S" ? get_card_geometry(2.0,2.0,rounded_corners,one_per_page) : get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
-	
+
 	render_cards nil, nil, nil, icon, "cards.pdf", true, false, false, card_geometry, white_cards, black_cards, true
 
 	if icon != "default.png"
@@ -664,7 +666,7 @@ else
 	if args.has_key? "large"
 		card_geometry = get_card_geometry(2.5,3.5, (not (args["rounded"]).nil?), (not (args["oneperpage"]).nil? ))
 	end
-	
+
 	if args.has_key? "help" or args.length == 0 or ( (not args.has_key? "white") and (not args.has_key? "black") and (not args.has_key? "dir") )
 		print_help
 	elsif args.has_key? "dir"
