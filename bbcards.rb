@@ -29,6 +29,8 @@ require "prawn/measurement_extensions"
 require "rbconfig"
 include RbConfig
 
+# Disable warning: PDF's built-in fonts have very limited support for internationalized text. If you need full UTF-8 support, consider using a TTF font instead.
+Prawn::Font::AFM.hide_m17n_warning = true
 
 
 MM_PER_INCH=25.4
@@ -67,8 +69,26 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_cor
 	card_geometry["margin_top"]   = (card_geometry["paper_height"] - card_geometry["page_height"] ) / 2
 
 	return card_geometry;
-
 end
+
+def get_card_texts(lang="en")
+	card_texts = Hash.new
+
+	case lang
+	  when "es", "ES", "es-ES"
+		card_texts["draw"] = "COGE"
+	  	card_texts["pick"] = "ELIGE"
+	  when "en", "EN", "en-UK", "en-US"
+		card_texts["draw"] = "DRAW"
+		card_texts["pick"] = "PICK"
+	  else
+		card_texts["draw"] = "DRAW"
+  		card_texts["pick"] = "PICK"
+	end
+
+	return card_texts;
+end
+
 
 def draw_grid(pdf, card_geometry)
 	pdf.stroke do
@@ -86,7 +106,7 @@ def draw_grid(pdf, card_geometry)
 				pdf.line(
 					[0,                           card_geometry["card_height"]*i],
 					[card_geometry["page_width"], card_geometry["card_height"]*i]
-					)
+				)
 
 			end
 		else
@@ -94,11 +114,11 @@ def draw_grid(pdf, card_geometry)
 				0.upto(card_geometry["cards_high"]-1) do |j|
 					#rectangle bounded by upper left corner, horizontal measured from the left, vertical measured from the bottom
 					pdf.rounded_rectangle(
-								[i*card_geometry["card_width"], card_geometry["card_height"]+(j*card_geometry["card_height"])],
-								card_geometry["card_width"],
-								card_geometry["card_height"],
-								card_geometry["rounded_corners"]
-								)
+						[i*card_geometry["card_width"], card_geometry["card_height"]+(j*card_geometry["card_height"])],
+						card_geometry["card_width"],
+						card_geometry["card_height"],
+						card_geometry["rounded_corners"]
+					)
 				end
 			end
 		end
@@ -117,22 +137,21 @@ def box(pdf, card_geometry, index, &blck)
 	pdf.bounding_box([x,y], width: card_geometry["card_width"]-20, height: card_geometry["card_height"]-10, &blck)
 end
 
-def draw_logos(pdf, card_geometry, icon)
+def draw_logos(pdf, card_geometry, icon, deck_name)
 	idx=0
 	while idx < card_geometry["cards_across"] * card_geometry["cards_high"]
 		box(pdf, card_geometry, idx) do
 			logo_max_height = 15
 			logo_max_width = card_geometry["card_width"]/2
-			pdf.image icon, fit: [logo_max_width,logo_max_height], at: [pdf.bounds.left,pdf.bounds.bottom+25]
+			pdf.image icon, fit: [logo_max_width, logo_max_height], at: [pdf.bounds.left, pdf.bounds.bottom+25]
+			pdf.text_box deck_name, size: 6, align: :left, width: 200, at: [pdf.bounds.left+22, pdf.bounds.bottom+18]
 		end
 		idx = idx + 1
 	end
 end
 
 
-
-
-def render_card_page(pdf, card_geometry, icon, statements, directory, is_black)
+def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements, directory, is_black)
 	pdf.font "Helvetica", :style => :normal
 	pdf.font_size = 14
 	pdf.line_width(0.5);
@@ -208,12 +227,14 @@ def render_card_page(pdf, card_geometry, icon, statements, directory, is_black)
 			card_text = card_text.gsub("\[\[\[/color\]\]\]", "</color>")
 
 			# Parse card_text to obtain pick_num and additional image
-			re = /(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/
+			re = /(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/m
 			m = re.match(card_text)
 
 			pick_num  = m[1]
 			img_data  = m[2]
 			card_text = m[3]
+
+			puts card_text
 
 			# Trim card text.
 			card_text = card_text.gsub(/^[\t ]*/, "")
@@ -247,7 +268,7 @@ def render_card_page(pdf, card_geometry, icon, statements, directory, is_black)
 				picknum = "1"
 			end
 
-			statements[idx] = [card_text,picknum]
+			statements[idx] = [card_text, picknum]
 
 			#by default cards should be bold
 			card_text = "<b>" + card_text + "</b>"
@@ -261,52 +282,56 @@ def render_card_page(pdf, card_geometry, icon, statements, directory, is_black)
 				pdf.image directory + File::Separator + img_data[0].to_s, fit: [img_data[1].to_f, img_data[2].to_f], at: [pdf.bounds.right + img_data[3].to_f, pdf.bounds.bottom + img_data[4].to_f]
 			end
 
+			# Print card text
 			if is_pick3
-				pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-55, :inline_format => true
+				text_margin_bottom = 68
+			elsif is_pick2
+				text_margin_bottom = 55
 			else
-				pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-35, :inline_format => true
+				text_margin_bottom = 35
 			end
+			pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-text_margin_bottom, :inline_format => true
 
 			pdf.font "Helvetica", :style => :bold
 			#pick 2
 			if is_pick2
-				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pdf.bounds.bottom+20]
+				pdf.text_box card_texts["pick"].to_s, size:9, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+35], :overflow => :shrink_to_fit
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+15.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+32],6.0)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+21]
+				pdf.text_box "2", color:"000000", size:10, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+36]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 			end
 
 			#pick 3
 			if is_pick3
-				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pdf.bounds.bottom+20]
+				pdf.text_box card_texts["pick"].to_s, size:9, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+35], :overflow => :shrink_to_fit
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+15.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+32],6.0)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "3", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+21]
+				pdf.text_box "3", color:"ff0000", size:10, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+36]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 
 
-				pdf.text_box "DRAW", size:11, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+40]
+				pdf.text_box card_texts["draw"].to_s, size:9, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+51], :overflow => :shrink_to_fit
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+35.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+48],6.0)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+41]
+				pdf.text_box "2", color:"000000", size:10, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+52]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 			end
 		end
 	end
-	draw_logos(pdf, card_geometry, icon)
+	draw_logos(pdf, card_geometry, icon, deck_name)
 	pdf.stroke_color "000000"
 	pdf.fill_color "000000"
 
@@ -412,8 +437,7 @@ def load_ttf_fonts(font_dir, font_families)
 	end
 end
 
-def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, white_string="", black_string="", output_to_stdout=false, title=nil )
-
+def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", deck_name="Cards Against Humanity", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, card_texts=get_card_texts, white_string="", black_string="", output_to_stdout=false, title=nil )
 	original_white_file = white_file
 	original_black_file = black_file
 	original_icon_file = icon_file
@@ -479,7 +503,7 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 			top_margin: card_geometry["margin_top"],
 			bottom_margin: card_geometry["margin_top"],
 			info: { :Title => title, :CreationDate => Time.now, :Producer => "Bigger, Blacker Cards", :Creator=>"Bigger, Blacker Cards" }
-			)
+		)
 
 
 		case CONFIG['host_os']
@@ -497,12 +521,12 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		end
 
 		white_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, white_icon_file, statements, directory, false)
+			render_card_page(pdf, card_geometry, card_texts, white_icon_file, deck_name, statements, directory, false)
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
 		black_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, black_icon_file, statements, directory, true)
+			render_card_page(pdf, card_geometry, card_texts, black_icon_file, deck_name, statements, directory, true)
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
@@ -519,7 +543,7 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		files_in_dir =Dir.glob(directory + File::Separator + "*")
 		files_in_dir.each do |subdir|
 			if File.directory? subdir
-				render_cards(subdir, original_white_file, original_black_file, original_icon_file, "irrelevant", false, true, true, card_geometry )
+				render_cards(subdir, original_white_file, original_black_file, original_icon_file, deck_name, "irrelevant", false, true, true, card_geometry, card_texts )
 			end
 		end
 	end
@@ -593,8 +617,11 @@ def print_help
 	puts "\t-d,--directory\t\tDirectory to search for card files"
 	puts "\t-h,--help\t\tPrint this Help message"
 	puts "\t-i,--icon\t\tIcon file, should be .jpg or .png"
+	puts "\t--lang\t\tSelect language por predefined texts. Supported: 'en', 'es'"
+	puts "\t-n,--name\t\tDeck name. Default: Cards Against Humanity"
 	puts "\t-o,--output\t\tOutput file, will be a .pdf file"
 	puts "\t-w,--white\t\tWhite card file"
+
 	puts "\n\tSizes:"
 	puts "\t-s,--small\t\tGenerate small 2\"x2\" cards"
 	puts "\t-m1,--medium1\t\tGenerate medium 41mm x 63mm cards"
@@ -633,7 +660,7 @@ if not (ENV['REQUEST_URI']).nil?
 	rounded_corners = card_size    == "LR"         ? true : false
 	card_geometry   = card_size    == "S" ? get_card_geometry(2.0,2.0,rounded_corners,one_per_page) : get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
 
-	render_cards nil, nil, nil, icon, "cards.pdf", true, false, false, card_geometry, white_cards, black_cards, true
+	render_cards nil, nil, nil, icon, "", "cards.pdf", true, false, false, card_geometry, get_card_texts(), white_cards, black_cards, true
 
 	if icon != "default.png"
 		File.unlink(icon)
@@ -650,8 +677,11 @@ else
 	arg_defs["--directory"] = "dir"
 	arg_defs["-i"]          = "icon"
 	arg_defs["--icon"]      = "icon"
+	arg_defs["-n"]          = "deck_name"
+	arg_defs["-name"]       = "deck_name"
 	arg_defs["-o"]          = "output"
 	arg_defs["-output"]     = "output"
+	arg_defs["--lang"]      = "lang"
 
 	flag_defs["-s"]            = "small"
 	flag_defs["--small"]       = "small"
@@ -673,6 +703,8 @@ else
 
 	args = parse_args(arg_defs, flag_defs)
 
+	lang = args["lang"] || "en"
+
 	if args.has_key? "large"
 		card_width_inches  = 2.5
 		card_height_inches = 3.5
@@ -690,13 +722,17 @@ else
 		card_height_inches = 2.0
 	end
 	card_geometry = get_card_geometry( card_width_inches, card_height_inches, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
+	card_texts    = get_card_texts( lang )
+
+    # Set Deck name or use default value
+	deck_name = args["deck_name"] || "Cards Against Humanity"
 
 	if args.has_key? "help" or args.length == 0 or ( (not args.has_key? "white") and (not args.has_key? "black") and (not args.has_key? "dir") )
 		print_help
 	elsif args.has_key? "dir"
-		render_cards args["dir"], "white.txt", "black.txt", "icon.png", "cards.pdf", false, true, true, card_geometry, "", "", false
+		render_cards args["dir"], "white.txt", "black.txt", "icon.png", deck_name, "cards.pdf", false, true, true, card_geometry, card_texts, "", "", false
 	else
-		render_cards nil, args["white"], args["black"], args["icon"], args["output"], true, false, false, card_geometry, "", "", false
+		render_cards nil, args["white"], args["black"], args["icon"], deck_name, args["output"], true, false, false, card_geometry, card_texts, "", "", false
 	end
 end
 exit
