@@ -234,8 +234,6 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 			img_data  = m[2]
 			card_text = m[3]
 
-			puts card_text
-
 			# Trim card text.
 			card_text = card_text.gsub(/^[\t ]*/, "")
 			card_text = card_text.gsub(/[\t ]*$/, "")
