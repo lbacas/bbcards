@@ -35,14 +35,11 @@ Prawn::Font::AFM.hide_m17n_warning = true
 
 MM_PER_INCH=25.4
 
-PAPER_NAME    = "LETTER"
-PAPER_HEIGHT  = (MM_PER_INCH*11.0).mm;
-PAPER_WIDTH   = (MM_PER_INCH*8.5).mm;
 MARGIN_HEIGHT = 15.mm;
 MARGIN_WIDTH  = 10.mm;
 
 
-def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_corners=false, one_card_per_page=false)
+def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_size=14, paper_format="LETTER", rounded_corners=false, one_card_per_page=false)
 	card_geometry = Hash.new
 	card_geometry["card_width"]        = (MM_PER_INCH*card_width_inches).mm
 	card_geometry["card_height"]       = (MM_PER_INCH*card_height_inches).mm
@@ -54,8 +51,7 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_cor
 		card_geometry["paper_width"]       = card_geometry["card_width"]
 		card_geometry["paper_height"]      = card_geometry["card_height"]
 	else
-		card_geometry["paper_width"]       = PAPER_WIDTH
-		card_geometry["paper_height"]      = PAPER_HEIGHT
+		card_geometry = get_paper_size(paper_format, card_geometry)
 	end
 
 
@@ -67,6 +63,8 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_cor
 
 	card_geometry["margin_left"]  = (card_geometry["paper_width"] - card_geometry["page_width"] ) / 2
 	card_geometry["margin_top"]   = (card_geometry["paper_height"] - card_geometry["page_height"] ) / 2
+
+	card_geometry["font_size"] = card_font_size
 
 	return card_geometry;
 end
@@ -89,6 +87,28 @@ def get_card_texts(lang="en")
 	return card_texts;
 end
 
+def get_paper_size(format, card_geometry)
+	case format
+	  when "DINA4"
+		card_geometry["paper_height"]  = 297.mm;
+  		card_geometry["paper_width"]   = 210.mm;
+	  when "DINA4_"
+  		card_geometry["paper_height"]  = 210.mm;
+    	card_geometry["paper_width"]   = 297.mm;
+	  when "LETTER"
+		card_geometry["paper_height"]  = (MM_PER_INCH*11.0).mm;
+  		card_geometry["paper_width"]   = (MM_PER_INCH*8.5).mm;
+	  when "LETTER_"
+  		card_geometry["paper_height"]  = (MM_PER_INCH*8.5).mm;
+    	card_geometry["paper_width"]   = (MM_PER_INCH*11.0).mm;
+	  else
+		# LETTER
+		card_geometry["paper_height"]  = (MM_PER_INCH*11.0).mm;
+		card_geometry["paper_width"]   = (MM_PER_INCH*8.5).mm;
+	end
+
+	return card_geometry
+end
 
 def draw_grid(pdf, card_geometry)
 	pdf.stroke do
@@ -151,9 +171,9 @@ def draw_logos(pdf, card_geometry, icon, deck_name)
 end
 
 
-def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements, directory, is_black)
+def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements, directory, is_black, page_number)
 	pdf.font "Helvetica", :style => :normal
-	pdf.font_size = 14
+	pdf.font_size = card_geometry["font_size"]
 	pdf.line_width(0.5);
 
 	if(is_black)
@@ -172,6 +192,9 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 		pdf.stroke_color "000000"
 		pdf.fill_color "000000"
 	end
+
+	cards_per_page = card_geometry["cards_high"] * card_geometry["cards_across"]
+	card_number = page_number * cards_per_page
 
 	draw_grid(pdf, card_geometry)
 	statements.each_with_index do |line, idx|
@@ -230,9 +253,10 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 			re = /(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/m
 			m = re.match(card_text)
 
-			pick_num  = m[1]
-			img_data  = m[2]
-			card_text = m[3]
+			pick_num    = m[1]
+			img_data    = m[2]
+			card_text   = m[3]
+			card_number = card_number + 1
 
 			# Trim card text.
 			card_text = card_text.gsub(/^[\t ]*/, "")
@@ -288,9 +312,13 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 			else
 				text_margin_bottom = 35
 			end
-			pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height =>card_geometry["card_height"]-text_margin_bottom, :inline_format => true
+			pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height => card_geometry["card_height"]-text_margin_bottom, :inline_format => true
 
 			pdf.font "Helvetica", :style => :bold
+
+			# Print card number
+			pdf.text_box "#"+card_number.to_s, size: 6, align: :right, width: 30, at: [pdf.bounds.right-25, pdf.bounds.bottom+8], rotate: 15, rotate_around: :center
+
 			#pick 2
 			if is_pick2
 				pdf.text_box card_texts["pick"].to_s, size:9, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+35], :overflow => :shrink_to_fit
@@ -518,13 +546,17 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		    # whatever
 		end
 
+		page_number = -1
 		white_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, card_texts, white_icon_file, deck_name, statements, directory, false)
+			page_number = page_number +1
+			render_card_page(pdf, card_geometry, card_texts, white_icon_file, deck_name, statements, directory, false, page_number)
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
+		page_number = -1
 		black_pages.each_with_index do |statements, page|
-			render_card_page(pdf, card_geometry, card_texts, black_icon_file, deck_name, statements, directory, true)
+			page_number = page_number +1
+			render_card_page(pdf, card_geometry, card_texts, black_icon_file, deck_name, statements, directory, true, page_number)
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
@@ -613,6 +645,7 @@ def print_help
 	puts "All flags:"
 	puts "\t-b,--black\t\tBlack card file"
 	puts "\t-d,--directory\t\tDirectory to search for card files"
+	puts "\t-f,--format\t\tPaper format. Supported: 'LETTER', 'LETTER_' (lanscape), 'DINA4', 'DINA4_' (lanscape)"
 	puts "\t-h,--help\t\tPrint this Help message"
 	puts "\t-i,--icon\t\tIcon file, should be .jpg or .png"
 	puts "\t--lang\t\tSelect language por predefined texts. Supported: 'en', 'es'"
@@ -676,10 +709,12 @@ else
 	arg_defs["-i"]          = "icon"
 	arg_defs["--icon"]      = "icon"
 	arg_defs["-n"]          = "deck_name"
-	arg_defs["-name"]       = "deck_name"
+	arg_defs["--name"]      = "deck_name"
 	arg_defs["-o"]          = "output"
-	arg_defs["-output"]     = "output"
+	arg_defs["--output"]    = "output"
 	arg_defs["--lang"]      = "lang"
+	arg_defs["-f"]          = "paper_format"
+	arg_defs["--format"]    = "paper_format"
 
 	flag_defs["-s"]            = "small"
 	flag_defs["--small"]       = "small"
@@ -706,20 +741,25 @@ else
 	if args.has_key? "large"
 		card_width_inches  = 2.5
 		card_height_inches = 3.5
+		card_font_size = 14
 	elsif args.has_key? "medium41"
 		card_width_inches  = 41/MM_PER_INCH
 		card_height_inches = 63/MM_PER_INCH
+		card_font_size = 12
 	elsif args.has_key? "medium43"
 		card_width_inches  = 43/MM_PER_INCH
 		card_height_inches = 65/MM_PER_INCH
+		card_font_size = 12
 	elsif args.has_key? "medium45"
 		card_width_inches  = 45/MM_PER_INCH
 		card_height_inches = 68/MM_PER_INCH
+		card_font_size = 14
 	else
 		card_width_inches  = 2.0
 		card_height_inches = 2.0
+		card_font_size = 14
 	end
-	card_geometry = get_card_geometry( card_width_inches, card_height_inches, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
+	card_geometry = get_card_geometry( card_width_inches, card_height_inches, card_font_size, args["paper_format"], !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
 	card_texts    = get_card_texts( lang )
 
     # Set Deck name or use default value
