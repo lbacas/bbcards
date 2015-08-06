@@ -44,7 +44,7 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_s
 	card_geometry["card_width"]        = (MM_PER_INCH*card_width_inches).mm
 	card_geometry["card_height"]       = (MM_PER_INCH*card_height_inches).mm
 
-	card_geometry["rounded_corners"]   = rounded_corners == true ? ((1.0/8.0)*MM_PER_INCH).mm : rounded_corners
+	card_geometry["rounded_corners"]   = rounded_corners == true ? ((1.0/8.0)*MM_PER_INCH).mm : (rounded_corners == false ? 0 : rounded_corners)
 	card_geometry["one_card_per_page"] = one_card_per_page
 
 	if card_geometry["one_card_per_page"]
@@ -111,25 +111,8 @@ def get_paper_size(format, card_geometry)
 end
 
 def draw_grid(pdf, card_geometry)
+	#Generate cards
 	pdf.stroke do
-		if card_geometry["rounded_corners"] == false
-			#Draw vertical lines
-			0.upto(card_geometry["cards_across"]) do |i|
-				pdf.line(
-					[card_geometry["card_width"]*i, 0],
-					[card_geometry["card_width"]*i, card_geometry["page_height"]]
-					)
-			end
-
-			#Draw horizontal lines
-			0.upto(card_geometry["cards_high"]) do |i|
-				pdf.line(
-					[0,                           card_geometry["card_height"]*i],
-					[card_geometry["page_width"], card_geometry["card_height"]*i]
-				)
-
-			end
-		else
 			0.upto(card_geometry["cards_across"]-1) do |i|
 				0.upto(card_geometry["cards_high"]-1) do |j|
 					#rectangle bounded by upper left corner, horizontal measured from the left, vertical measured from the bottom
@@ -142,7 +125,35 @@ def draw_grid(pdf, card_geometry)
 				end
 			end
 		end
+
+	pdf.dash(3, :space => 2)
+	pdf.stroke do
+		#Draw vertical cut helpers
+		0.upto(card_geometry["cards_across"]) do |i|
+			pdf.line(
+				[card_geometry["card_width"]*i, -100],
+				[card_geometry["card_width"]*i, -8]
+			)
+			pdf.line(
+				[card_geometry["card_width"]*i, card_geometry["page_height"] + 8],
+				[card_geometry["card_width"]*i, card_geometry["page_height"] + 100]
+			)
+		end
+
+		#Draw horizontal cut helpers
+		0.upto(card_geometry["cards_high"]) do |i|
+			pdf.line(
+				[-100,                        card_geometry["card_height"]*i],
+				[-8,                          card_geometry["card_height"]*i]
+			)
+			pdf.line(
+				[card_geometry["page_width"] + 8,   card_geometry["card_height"]*i],
+				[card_geometry["page_width"] + 100, card_geometry["card_height"]*i]
+			)
+
+		end
 	end
+	pdf.undash
 end
 
 def box(pdf, card_geometry, index, &blck)
