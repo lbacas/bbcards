@@ -659,9 +659,11 @@ def print_help
 	puts "\t-f,--format\t\tPaper format. Supported: 'LETTER', 'LETTER_' (lanscape), 'DINA4', 'DINA4_' (lanscape)"
 	puts "\t-h,--help\t\tPrint this Help message"
 	puts "\t-i,--icon\t\tIcon file, should be .jpg or .png"
-	puts "\t--lang\t\tSelect language por predefined texts. Supported: 'en', 'es'"
+	puts "\t--lang\t\t\tSelect language por predefined texts. Supported: 'en', 'es'"
 	puts "\t-n,--name\t\tDeck name. Default: Cards Against Humanity"
 	puts "\t-o,--output\t\tOutput file, will be a .pdf file"
+	puts "\t--oneperpage\t\tGenerate one card per page"
+	puts "\t-r,--rounded\t\tGenerate cards with rounders corners"
 	puts "\t-w,--white\t\tWhite card file"
 
 	puts "\n\tSizes:"
