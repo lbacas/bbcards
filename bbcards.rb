@@ -374,6 +374,50 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 
 end
 
+def render_back_card_page(pdf, card_geometry, statements, is_black)
+	pdf.font "Helvetica", :style => :normal
+	pdf.font_size = 18
+	#pdf.line_width(0.5);
+
+	if(is_black)
+		pdf.canvas do
+			pdf.rectangle(pdf.bounds.top_left, pdf.bounds.width, pdf.bounds.height)
+		end
+
+		pdf.fill_and_stroke(:fill_color=>"000000", :stroke_color=>"000000") do
+			pdf.canvas do
+				pdf.rectangle(pdf.bounds.top_left,pdf.bounds.width, pdf.bounds.height)
+			end
+		end
+		pdf.stroke_color "ffffff"
+		pdf.fill_color "ffffff"
+	else
+		pdf.stroke_color "000000"
+		pdf.fill_color "000000"
+	end
+
+	#draw_grid(pdf, card_geometry)
+	statements.each_with_index do |line, idx|
+		box(pdf, card_geometry, idx) do
+			card_text = 'Cards<br>Against<br>Humanity'
+
+			#by default cards should be bold
+			card_text = "<b>" + card_text + "</b>"
+
+			# Text
+			#pdf.font "Helvetica", :style => :normal
+
+			pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height => card_geometry["card_height"]*0.75, \
+										 :inline_format => true, :leading => -2.5, :valign => :center, \
+										 rotate: 15
+		end
+	end
+	pdf.stroke_color "000000"
+	pdf.fill_color "000000"
+end
+
+
+
 def load_pages_from_lines(lines, card_geometry)
 	pages = []
 
@@ -561,6 +605,9 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		white_pages.each_with_index do |statements, page|
 			page_number = page_number +1
 			render_card_page(pdf, card_geometry, card_texts, white_icon_file, deck_name, statements, directory, false, page_number)
+			#pdf.start_new_page unless page >= white_pages.length-1
+			pdf.start_new_page unless page >= white_pages.length
+			render_back_card_page(pdf, card_geometry, statements, false)
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
@@ -568,6 +615,9 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		black_pages.each_with_index do |statements, page|
 			page_number = page_number +1
 			render_card_page(pdf, card_geometry, card_texts, black_icon_file, deck_name, statements, directory, true, page_number)
+			#pdf.start_new_page unless page >= white_pages.length-1
+			pdf.start_new_page unless page >= black_pages.length
+			render_back_card_page(pdf, card_geometry, statements, true)
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
