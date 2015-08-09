@@ -377,7 +377,6 @@ end
 def render_back_card_page(pdf, card_geometry, statements, is_black)
 	pdf.font "Helvetica", :style => :normal
 	pdf.font_size = 18
-	#pdf.line_width(0.5);
 
 	if(is_black)
 		pdf.canvas do
@@ -403,9 +402,6 @@ def render_back_card_page(pdf, card_geometry, statements, is_black)
 
 			#by default cards should be bold
 			card_text = "<b>" + card_text + "</b>"
-
-			# Text
-			#pdf.font "Helvetica", :style => :normal
 
 			pdf.text_box card_text.to_s, :overflow => :shrink_to_fit, :height => card_geometry["card_height"]*0.75, \
 										 :inline_format => true, :leading => -2.5, :valign => :center, \
@@ -518,7 +514,7 @@ def load_ttf_fonts(font_dir, font_families)
 	end
 end
 
-def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", deck_name="Cards Against Humanity", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, card_texts=get_card_texts, white_string="", black_string="", output_to_stdout=false, title=nil )
+def render_cards(directory=".", white_file="white.txt", black_file="black.txt", icon_file="icon.png", deck_name="Cards Against Humanity", render_back_side="none", output_file="cards.pdf", input_files_are_absolute=false, output_file_name_from_directory=true, recurse=true, card_geometry=get_card_geometry, card_texts=get_card_texts, white_string="", black_string="", output_to_stdout=false, title=nil )
 	original_white_file = white_file
 	original_black_file = black_file
 	original_icon_file = icon_file
@@ -603,21 +599,39 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 
 		page_number = -1
 		white_pages.each_with_index do |statements, page|
+			if render_back_side === "one" && page == 0
+				# Render one back white cards page at the beggining
+				render_back_card_page(pdf, card_geometry, statements, false)
+				pdf.start_new_page
+			end
+
 			page_number = page_number +1
 			render_card_page(pdf, card_geometry, card_texts, white_icon_file, deck_name, statements, directory, false, page_number)
-			#pdf.start_new_page unless page >= white_pages.length-1
-			pdf.start_new_page unless page >= white_pages.length
+			if render_back_side === "all"
+				# Render a back white cards page after each white cards page.
+				pdf.start_new_page
 			render_back_card_page(pdf, card_geometry, statements, false)
+			end
 			pdf.start_new_page unless page >= white_pages.length-1
 		end
+
 		pdf.start_new_page unless white_pages.length == 0 || black_pages.length == 0
 		page_number = -1
 		black_pages.each_with_index do |statements, page|
+			if render_back_side === "one" && page == 0
+				# Render one back black cards page at the beggining
+				render_back_card_page(pdf, card_geometry, statements, true)
+				pdf.start_new_page
+			end
+
 			page_number = page_number +1
 			render_card_page(pdf, card_geometry, card_texts, black_icon_file, deck_name, statements, directory, true, page_number)
-			#pdf.start_new_page unless page >= white_pages.length-1
-			pdf.start_new_page unless page >= black_pages.length
+
+			if render_back_side === "all"
+				# Render a back black cards page after each black cards page.
+				pdf.start_new_page
 			render_back_card_page(pdf, card_geometry, statements, true)
+			end
 			pdf.start_new_page unless page >= black_pages.length-1
 		end
 
@@ -634,7 +648,7 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 		files_in_dir =Dir.glob(directory + File::Separator + "*")
 		files_in_dir.each do |subdir|
 			if File.directory? subdir
-				render_cards(subdir, original_white_file, original_black_file, original_icon_file, deck_name, "irrelevant", false, true, true, card_geometry, card_texts )
+				render_cards(subdir, original_white_file, original_black_file, original_icon_file, deck_name, render_back_side, "irrelevant", false, true, true, card_geometry, card_texts )
 			end
 		end
 	end
@@ -705,6 +719,7 @@ def print_help
 	puts ""
 	puts "All flags:"
 	puts "\t-b,--black\t\tBlack card file"
+	puts "\t--back_side\t\tRender back side cards: 'none', 'one', 'all'"
 	puts "\t-d,--directory\t\tDirectory to search for card files"
 	puts "\t-f,--format\t\tPaper format. Supported: 'LETTER', 'LETTER_' (lanscape), 'DINA4', 'DINA4_' (lanscape)"
 	puts "\t-h,--help\t\tPrint this Help message"
@@ -754,7 +769,7 @@ if not (ENV['REQUEST_URI']).nil?
 	rounded_corners = card_size    == "LR"         ? true : false
 	card_geometry   = card_size    == "S" ? get_card_geometry(2.0,2.0,rounded_corners,one_per_page) : get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
 
-	render_cards nil, nil, nil, icon, "", "cards.pdf", true, false, false, card_geometry, get_card_texts(), white_cards, black_cards, true
+	render_cards nil, nil, nil, icon, "", "none", "cards.pdf", true, false, false, card_geometry, get_card_texts(), white_cards, black_cards, true
 
 	if icon != "default.png"
 		File.unlink(icon)
@@ -778,6 +793,7 @@ else
 	arg_defs["--lang"]      = "lang"
 	arg_defs["-f"]          = "paper_format"
 	arg_defs["--format"]    = "paper_format"
+	arg_defs["--back_side"] = "back_side"
 
 	flag_defs["-s"]            = "small"
 	flag_defs["--small"]       = "small"
@@ -828,12 +844,18 @@ else
     # Set Deck name or use default value
 	deck_name = args["deck_name"] || "Cards Against Humanity"
 
+	# Set render back pages
+	render_back_side = args["back_side"] || "none"
+	if !["none", "one", "all"].include?(render_back_side) then
+		render_back_side = "none"
+	end
+
 	if args.has_key? "help" or args.length == 0 or ( (not args.has_key? "white") and (not args.has_key? "black") and (not args.has_key? "dir") )
 		print_help
 	elsif args.has_key? "dir"
-		render_cards args["dir"], "white.txt", "black.txt", "icon.png", deck_name, "cards.pdf", false, true, true, card_geometry, card_texts, "", "", false
+		render_cards args["dir"], "white.txt", "black.txt", "icon.png", deck_name, render_back_side, "cards.pdf", false, true, true, card_geometry, card_texts, "", "", false
 	else
-		render_cards nil, args["white"], args["black"], args["icon"], deck_name, args["output"], true, false, false, card_geometry, card_texts, "", "", false
+		render_cards nil, args["white"], args["black"], args["icon"], deck_name, render_back_side, args["output"], true, false, false, card_geometry, card_texts, "", "", false
 	end
 end
 exit
