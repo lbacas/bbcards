@@ -583,7 +583,7 @@ def render_cards(directory=".", white_file="white.txt", black_file="black.txt", 
 			right_margin: card_geometry["margin_left"],
 			top_margin: card_geometry["margin_top"],
 			bottom_margin: card_geometry["margin_top"],
-			info: { :Title => title, :CreationDate => Time.now, :Producer => "Bigger, Blacker Cards", :Creator=>"Bigger, Blacker Cards" }
+			info: { :Title => title, :CreationDate => Time.now, :Producer => "Dj Blue", :Creator=>"Dj Blue" }
 		)
 
 
