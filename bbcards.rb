@@ -36,7 +36,7 @@ Prawn::Font::AFM.hide_m17n_warning = true
 MM_PER_INCH=25.4
 
 MARGIN_HEIGHT = 15.mm;
-MARGIN_WIDTH  = 10.mm;
+MARGIN_WIDTH  = 6.mm;
 
 
 def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_size=14, paper_format="LETTER", rounded_corners=false, one_card_per_page=false)
@@ -54,9 +54,8 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_s
 		card_geometry = get_paper_size(paper_format, card_geometry)
 	end
 
-
-	card_geometry["cards_across"] = ( (card_geometry["paper_width"] - MARGIN_WIDTH) / card_geometry["card_width"]).floor
-	card_geometry["cards_high"]   = ( (card_geometry["paper_height"] - MARGIN_HEIGHT) / card_geometry["card_height"]).floor
+	card_geometry["cards_across"] = ( (card_geometry["paper_width"] - card_geometry["margin_width"]) / card_geometry["card_width"]).floor
+	card_geometry["cards_high"]   = ( (card_geometry["paper_height"] - card_geometry["margin_high"]) / card_geometry["card_height"]).floor
 
 	card_geometry["page_width"]   = card_geometry["card_width"] * card_geometry["cards_across"]
 	card_geometry["page_height"]  = card_geometry["card_height"] * card_geometry["cards_high"]
@@ -92,19 +91,29 @@ def get_paper_size(format, card_geometry)
 	  when "DINA4"
 		card_geometry["paper_height"]  = 297.mm;
   		card_geometry["paper_width"]   = 210.mm;
+		card_geometry["margin_width"]  = MARGIN_WIDTH;
+		card_geometry["margin_high"]   = MARGIN_HEIGHT;
 	  when "DINA4_"
   		card_geometry["paper_height"]  = 210.mm;
     	card_geometry["paper_width"]   = 297.mm;
+		card_geometry["margin_width"]  = MARGIN_HEIGHT;
+		card_geometry["margin_high"]   = MARGIN_WIDTH;
 	  when "LETTER"
 		card_geometry["paper_height"]  = (MM_PER_INCH*11.0).mm;
   		card_geometry["paper_width"]   = (MM_PER_INCH*8.5).mm;
+		card_geometry["margin_width"]  = MARGIN_WIDTH;
+		card_geometry["margin_high"]   = MARGIN_HEIGHT;
 	  when "LETTER_"
   		card_geometry["paper_height"]  = (MM_PER_INCH*8.5).mm;
     	card_geometry["paper_width"]   = (MM_PER_INCH*11.0).mm;
+		card_geometry["margin_width"]  = MARGIN_HEIGHT;
+		card_geometry["margin_high"]   = MARGIN_WIDTH;
 	  else
 		# LETTER
 		card_geometry["paper_height"]  = (MM_PER_INCH*11.0).mm;
 		card_geometry["paper_width"]   = (MM_PER_INCH*8.5).mm;
+		card_geometry["margin_width"]  = MARGIN_WIDTH;
+		card_geometry["margin_high"]   = MARGIN_HEIGHT;
 	end
 
 	return card_geometry
