@@ -35,11 +35,11 @@ Prawn::Font::AFM.hide_m17n_warning = true
 
 MM_PER_INCH=25.4
 
-MARGIN_HEIGHT = 15.mm;
+MARGIN_HEIGHT = 10.mm;
 MARGIN_WIDTH  = 6.mm;
 
 
-def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_size=14, paper_format="LETTER", rounded_corners=false, one_card_per_page=false)
+def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_size=14, paper_format="LETTER", text_color="000000", rounded_corners=false, one_card_per_page=false)
 	card_geometry = Hash.new
 	card_geometry["card_width"]        = (MM_PER_INCH*card_width_inches).mm
 	card_geometry["card_height"]       = (MM_PER_INCH*card_height_inches).mm
@@ -64,6 +64,8 @@ def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, card_font_s
 	card_geometry["margin_top"]   = (card_geometry["paper_height"] - card_geometry["page_height"] ) / 2
 
 	card_geometry["font_size"] = card_font_size
+
+	card_geometry["text_color"] = text_color
 
 	return card_geometry;
 end
@@ -231,8 +233,8 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 		pdf.stroke_color "ffffff"
 		pdf.fill_color "ffffff"
 	else
-		pdf.stroke_color "000000"
-		pdf.fill_color "000000"
+		pdf.stroke_color card_geometry["text_color"]
+		pdf.fill_color card_geometry["text_color"]
 	end
 
 	cards_per_page = card_geometry["cards_high"] * card_geometry["cards_across"]
@@ -772,6 +774,7 @@ def print_help
 	puts "\t--oneperpage\t\tGenerate one card per page"
 	puts "\t-r,--rounded\t\tGenerate cards with rounders corners"
 	puts "\t-g,--draw_grid\t\tPrint card borders: 'all', 'helpers', 'none'. Default: 'all'"
+	puts "\t--text_color\t\tPrint white cardin selected color (HEX)"
 	puts ""
 
 
@@ -802,7 +805,7 @@ if not (ENV['REQUEST_URI']).nil?
 
 	one_per_page    = page_layout == "oneperpage" ? true : false
 	rounded_corners = card_size    == "LR"         ? true : false
-	card_geometry   = card_size    == "S" ? get_card_geometry(2.0,2.0,rounded_corners,one_per_page) : get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
+	card_geometry   = card_size    == "S" ? get_card_geometry(2.0, 2.0, rounded_corners, one_per_page) : get_card_geometry(2.5, 3.5, rounded_corners, one_per_page)
 
 	render_cards nil, nil, nil, icon, "", "none", "cards.pdf", true, false, false, card_geometry, get_card_texts(), white_cards, black_cards, true
 
@@ -831,6 +834,7 @@ else
 	arg_defs["--back_side"] = "back_side"
 	arg_defs["-g"]          = "draw_grid"
 	arg_defs["--draw_grid"] = "draw_grid"
+	arg_defs["--text_color"] = "text_color"
 
 	flag_defs["-s"]            = "small"
 	flag_defs["--small"]       = "small"
@@ -853,6 +857,7 @@ else
 	args = parse_args(arg_defs, flag_defs)
 
 	lang = args["lang"] || "en"
+	text_color = args["text_color"] || "000000"
 
 	if args.has_key? "large"
 		card_width_inches  = 2.5
@@ -869,15 +874,15 @@ else
 	elsif args.has_key? "medium45"
 		card_width_inches  = 45/MM_PER_INCH
 		card_height_inches = 68/MM_PER_INCH
-		card_font_size = 14
+		card_font_size = 12
 	else
 		card_width_inches  = 2.0
 		card_height_inches = 2.0
-		card_font_size = 14
+		card_font_size = 12
 	end
 
 
-	card_geometry = get_card_geometry( card_width_inches, card_height_inches, card_font_size, args["paper_format"], !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
+	card_geometry = get_card_geometry( card_width_inches, card_height_inches, card_font_size, args["paper_format"], text_color, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
 	card_texts    = get_card_texts( lang )
 
 	# Set cards borders format
