@@ -294,13 +294,14 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 			card_text = card_text.gsub("\[\[\[/color\]\]\]", "</color>")
 
 			# Parse card_text to obtain pick_num and additional image
-			re = /(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/m
+			re = /(?:\[\[num=([^\]]+)\]\])?(?:\[\[(\d+)\]\])?(?:\[\[img=([^\]]+)\]\])?(.*)/m
 			m = re.match(card_text)
 
-			pick_num    = m[1]
-			img_data    = m[2]
-			card_text   = m[3]
-			card_number = card_number + 1
+			card_num    = m[1];	# Overwritten card number
+			pick_num    = m[2]
+			img_data    = m[3]; # Image to display
+			card_text   = m[4]; # Text
+			card_number = card_number + 1; # Original card number based on line position.
 
 			# Trim card text.
 			card_text = card_text.gsub(/^[\t ]*/, "")
@@ -348,6 +349,11 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 				pdf.image directory + File::Separator + img_data[0].to_s, fit: [img_data[1].to_f, img_data[2].to_f], at: [pdf.bounds.right + img_data[3].to_f, pdf.bounds.bottom + img_data[4].to_f]
 			end
 
+			# Check if card number is overwritten
+			if card_num.nil?
+				card_num = card_number;
+			end
+
 			# Print card text
 			if is_pick3
 				text_margin_bottom = 68
@@ -361,7 +367,7 @@ def render_card_page(pdf, card_geometry, card_texts, icon, deck_name, statements
 			pdf.font "Helvetica", :style => :bold
 
 			# Print card number
-			pdf.text_box "#"+card_number.to_s, size: 6, align: :right, width: 30, at: [pdf.bounds.right-30, pdf.bounds.bottom+18], rotate: 15, rotate_around: :center
+			pdf.text_box "#"+card_num.to_s, size: 6, align: :right, width: 30, at: [pdf.bounds.right-30, pdf.bounds.bottom+18], rotate: 15, rotate_around: :center
 
 			#pick 2
 			if is_pick2
